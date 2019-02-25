@@ -4,8 +4,9 @@ Jinja2 Documentation:    http://jinja.pocoo.org/2/documentation/
 Werkzeug Documentation:  http://werkzeug.pocoo.org/documentation/
 This file creates your application.
 """
+from .forms import UploadForm
 import os
-from app import app
+from app import app,forms,ALLOWED_EXTENSIONS
 from flask import render_template, request, redirect, url_for, flash, session, abort
 from werkzeug.utils import secure_filename
 
@@ -32,15 +33,21 @@ def upload():
         abort(401)
 
     # Instantiate your form class
+    uploadForm = UploadForm()
 
     # Validate file upload on submit
-    if request.method == 'POST':
+    if request.method == 'POST'and uploadForm.validate_on_submit():
         # Get file data and save to your uploads folder
-
+        upload=uploadForm.upload.data
+        filename=secure_filename(upload.filename)
+        upload.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        
+        
         flash('File Saved', 'success')
         return redirect(url_for('home'))
 
-    return render_template('upload.html')
+    return render_template('upload.html', uploadForm=uploadForm)
+
 
 
 @app.route('/login', methods=['POST', 'GET'])
@@ -67,6 +74,26 @@ def logout():
 ###
 # The functions below should be applicable to all Flask apps.
 ###
+
+def get_uploaded_images():
+    listfiles=[]
+    for cwd, subdirs, files in os.walk(app.config['UPLOAD_FOLDER']):
+        for file in files:
+            if file.split('.')[-1] in ALLOWED_EXTENSIONS:
+                listfiles.append(file)
+    return listfiles
+
+
+@app.route('/files')
+def files():
+    """Render website's files page."""
+    if not session.get('logged_in'):
+        abort(401)
+        
+    fileNames = get_uploaded_images()
+    return render_template('files.html', fileNames = fileNames)
+    
+
 
 # Flash errors from the form if validation fails
 def flash_errors(form):
